@@ -1,0 +1,120 @@
+main:
+	ADDI X10, XZR, #512 // Length of the array (used for populating in reverse-sorted order)
+	ADD X11, XZR, XZR // Array index for fill.
+	
+fill:
+	SUB X12, X10, XZR
+	CBZ X12, end_fill
+	
+	STUR X10, [X11, #0]
+	SUBI X10, X10, #1 // Decrease number to store each time (reverse-sorted order)
+	ADDI X11, X11, #8 // Increase array index
+	
+	B fill
+	
+end_fill:
+	ADDI X0, XZR, #512 // Length of the array (used for iteration)
+	ADD X3, XZR, XZR // Array address
+	BL insertion_sort // Once filled, start insertion_sort
+	
+insertion_sort:
+	ADDI X1, X1, #1 // X1 is pos, used in insert_sorted_pos (initially set to 1)
+	B insertion_sort_loop
+		
+insertion_sort_loop:
+	SUB X15, X0, X1
+	CBZ X15, end_insertion_sort
+	
+	BL insert_sorted_pos
+	
+	ADDI X1, X1, #1 // Increment pos
+	B insertion_sort_loop
+	
+end_insertion_sort:
+	B done // After insertion sort is finished, end program
+	
+insert_sorted_pos:
+	SUBI SP, SP, #8
+	STUR LR, [SP, #0] // Store return call on stack
+	
+	LSL X9, X1, #3 // Adjusted array index
+	ADD X18, X3, X9 // Array address offset
+	LDUR X4, [X18, #0] // X4 = addr[pos]
+
+	ADDI X19, XZR, #0 // Reset the sorted pos before each call
+	BL find_sorted_pos
+	
+	BL shift_right
+	
+	LSL X19, X19, #3
+	ADD X20, X3, X19 // Array address
+	STUR X4, [X20, #0] // addr[p] = v
+	
+	LDUR LR, [SP, #0] // Grab LR from the stack and adjust the SP
+	ADDI SP, SP, #8
+	BR LR
+	
+find_sorted_pos:
+	SUBI SP, SP, #16
+	STUR LR, [SP, #8] // Store return call on stack
+
+	SUBS XZR, X19, X0 // X19 is i
+	B.GE end_find_sorted_pos
+	
+	LSL X20, X19, #3
+	ADD X21, X3, X20
+	LDUR X22, [X21, #0] // addr[i]
+
+	SUBS XZR, X22, X4
+	B.GE end_find_sorted_pos // If addr[i] >= val, break from loop
+	
+	ADDI X19, X19, #1
+	B find_sorted_pos
+	
+end_find_sorted_pos:
+	LDUR LR, [SP, #8]
+	ADDI SP, SP, #16 // Grab LR from the stack and adjust the SP
+	BR LR // Found sorted pos, so return back to caller
+	
+shift_right:	
+	SUBI SP, SP, #24
+	STUR LR, [SP, #16] // Store return call on stack
+	
+	ADD X26, XZR, X1
+	SUBI X26, X26, #1
+	
+	B shift_right_loop
+
+shift_right_loop:
+	SUBS XZR, X19, X26
+	B.GT end_shift_right_loop
+
+	LSL X20, X26, #3
+	ADD X21, X3, X20 // Array address
+	
+	LDUR X24, [X21, #0] // addr[i]
+	STUR X24, [X21, #8] // addr[i + 1] = addr[i]
+
+	SUBI X26, X26, #1
+	B shift_right_loop
+	
+end_shift_right_loop:
+	LDUR LR, [SP, #16]
+	ADDI SP, SP, #24 // Grab LR from the stack and adjust the SP
+	BR LR
+	
+done:
+	SUBIS XZR, X27, #512 // Array length (used for printing the final result)
+	B.GE end_done
+	
+	LSL X20, X27, #3
+	ADD X21, X3, X20
+	LDUR X9, [X21, #0] // addr[i]
+	
+	PRNT X9 // Print each array element
+	
+	ADDI X27, X27, #1
+	B done
+	
+end_done:
+	DUMP
